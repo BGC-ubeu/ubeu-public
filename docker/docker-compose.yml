@@ -1,0 +1,187 @@
+version: '3.8'
+
+services:
+  # Hedera Local Node
+  hedera-local-node:
+    image: gcr.io/hedera-registry/hedera-services/local-node:latest
+    container_name: hedera-local-node
+    ports:
+      - "50211:50211"  # gRPC
+      - "5600:5600"    # Mirror Node REST API
+      - "5433:5433"    # PostgreSQL (for Mirror Node)
+    environment:
+      - HEDERA_LOG_LEVEL=INFO
+      - NETWORK_NODE_NAME=local-node
+    volumes:
+      - hedera_data:/opt/hedera/services/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5600/api/v1/network/nodes"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # PostgreSQL Database
+  postgresql:
+    image: postgres:15-alpine
+    container_name: ubeu-postgres
+    environment:
+      POSTGRES_DB: ubeu_dev
+      POSTGRES_USER: ubeu_admin
+      POSTGRES_PASSWORD: ubeu_dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docs/database-schema.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ubeu_admin -d ubeu_dev"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: ubeu-redis
+    command: redis-server --requirepass ubeu_dev_password
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Identity Service
+  identity-service:
+    build:
+      context: .
+      dockerfile: packages/identity-service/Dockerfile
+    container_name: ubeu-identity-service
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgresql
+      - DB_PORT=5432
+      - DB_USERNAME=ubeu_admin
+      - DB_PASSWORD=ubeu_dev_password
+      - DB_NAME=ubeu_dev
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=ubeu_dev_password
+      - HEDERA_NETWORK=local
+      - HEDERA_ACCOUNT_ID=0.0.2
+      - HEDERA_PRIVATE_KEY=302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137
+      - HEDERA_NODE_ENDPOINT=127.0.0.1:50211
+      - TREASURY_ACCOUNT_ID=0.0.3
+      - JWT_SECRET=ubeu_development_jwt_secret_change_in_production_environment
+      - API_PORT=3001
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      hedera-local-node:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Domain Verification Service
+  domain-verification-service:
+    build:
+      context: .
+      dockerfile: packages/domain-verification-service/Dockerfile
+    container_name: ubeu-domain-service
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgresql
+      - DB_PORT=5432
+      - DB_USERNAME=ubeu_admin
+      - DB_PASSWORD=ubeu_dev_password
+      - DB_NAME=ubeu_dev
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=ubeu_dev_password
+      - HEDERA_NETWORK=local
+      - HEDERA_ACCOUNT_ID=0.0.2
+      - HEDERA_PRIVATE_KEY=302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137
+      - HEDERA_NODE_ENDPOINT=127.0.0.1:50211
+      - PORT=3002
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      hedera-local-node:
+        condition: service_healthy
+    ports:
+      - "3002:3002"
+
+  # Treasury Service
+  treasury-service:
+    build:
+      context: .
+      dockerfile: packages/treasury-service/Dockerfile
+    container_name: ubeu-treasury-service
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgresql
+      - DB_PORT=5432
+      - DB_USERNAME=ubeu_admin
+      - DB_PASSWORD=ubeu_dev_password
+      - DB_NAME=ubeu_dev
+      - HEDERA_NETWORK=local
+      - HEDERA_TREASURY_ACCOUNT=0.0.3
+      - HEDERA_TREASURY_KEY=302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137
+      - HEDERA_NODE_ENDPOINT=127.0.0.1:50211
+      - PORT=3003
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      hedera-local-node:
+        condition: service_healthy
+    ports:
+      - "3003:3003"
+
+  # Credential Service
+  credential-service:
+    build:
+      context: .
+      dockerfile: packages/credential-service/Dockerfile
+    container_name: ubeu-credential-service
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgresql
+      - DB_PORT=5432
+      - DB_USERNAME=ubeu_admin
+      - DB_PASSWORD=ubeu_dev_password
+      - DB_NAME=ubeu_dev
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=ubeu_dev_password
+      - HEDERA_NETWORK=local
+      - HEDERA_ACCOUNT_ID=0.0.2
+      - HEDERA_PRIVATE_KEY=302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137
+      - HEDERA_NODE_ENDPOINT=127.0.0.1:50211
+      - PORT=3004
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      hedera-local-node:
+        condition: service_healthy
+    ports:
+      - "3004:3004"
+
+volumes:
+  postgres_data:
+  redis_data:
+  hedera_data:

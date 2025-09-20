@@ -1,0 +1,856 @@
+openapi: 3.0.3
+info:
+  title: UBeU Domain API
+  version: 1.0.0
+  description: |
+    UBeU Domain Management API for .iam domains and external Web3 domain verification.
+
+    ## Domain Types
+
+    ### .iam Domains
+    - **Format**: `field1.field2.iam`
+    - **Registration**: Through UBeU platform
+    - **Verification**: Automatic
+    - **Cost**: Included in subscription
+
+    ### External Domains
+    - **Supported**: .eth, .crypto, .sol, .btc, etc.
+    - **Verification**: Cryptographic proof of ownership
+    - **Cost**: Free (gas fees only)
+
+  contact:
+    name: UBeU Support
+    email: support@ubeu.io
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.ubeu.io/v1
+    description: Production server
+  - url: https://staging-api.ubeu.io/v1
+    description: Staging server
+  - url: http://localhost:3000/v1
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+paths:
+  /domains/register:
+    post:
+      summary: Register .iam domain
+      description: Register a new .iam domain for a user
+      tags:
+        - Domain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - domain
+                - userId
+              properties:
+                domain:
+                  type: string
+                  pattern: '^[a-zA-Z0-9-]+\.iam$'
+                  description: .iam domain to register
+                  example: john.smith.iam
+                userId:
+                  type: string
+                  format: uuid
+                  description: User ID
+                  example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        "201":
+          description: Domain registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      domain:
+                        type: string
+                        example: john.smith.iam
+                      nftTokenId:
+                        type: string
+                        description: Domain NFT token ID
+                        example: "0.0.12345"
+                      transactionId:
+                        type: string
+                        description: Hedera transaction ID
+                        example: "0.0.12345@1234567890.000000000"
+                      expiresAt:
+                        type: string
+                        format: date-time
+                        description: Domain expiration date
+        "400":
+          description: Invalid domain format or data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Domain already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "402":
+          description: Insufficient allowance or subscription required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /domains/verify:
+    post:
+      summary: Verify external domain ownership
+      description: Verify ownership of external Web3 domains through cryptographic proof
+      tags:
+        - Domain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - domain
+                - userId
+                - signature
+                - message
+              properties:
+                domain:
+                  type: string
+                  description: External domain to verify
+                  example: john.eth
+                userId:
+                  type: string
+                  format: uuid
+                  description: User ID
+                signature:
+                  type: string
+                  description: Cryptographic signature proving ownership
+                  example: "0x..."
+                message:
+                  type: string
+                  description: Signed message for verification
+                  example: "Verify ownership of john.eth at 2025-01-01T00:00:00Z"
+                blockchain:
+                  type: string
+                  enum: [ethereum, polygon, solana, bitcoin]
+                  description: Blockchain where domain is registered
+                  example: ethereum
+      responses:
+        "200":
+          description: Domain verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      domain:
+                        type: string
+                        example: john.eth
+                      verified:
+                        type: boolean
+                        example: true
+                      blockchain:
+                        type: string
+                        example: ethereum
+                      proof:
+                        type: string
+                        description: Verification proof hash
+                        example: "0x..."
+                      timestamp:
+                        type: string
+                        format: date-time
+        "400":
+          description: Invalid verification data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Verification failed - invalid signature or ownership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /domains/{domain}:
+    get:
+      summary: Get domain information
+      description: Retrieve detailed information about a domain
+      tags:
+        - Domain
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Domain name (with or without .iam extension)
+          example: john.smith.iam
+      responses:
+        "200":
+          description: Domain information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      domain:
+                        type: string
+                        example: john.smith.iam
+                      type:
+                        type: string
+                        enum: [iam, external]
+                        example: iam
+                      status:
+                        type: string
+                        enum: [active, pending, suspended, expired]
+                        example: active
+                      owner:
+                        type: string
+                        format: uuid
+                        description: User ID of domain owner
+                      blockchain:
+                        type: string
+                        description: Blockchain for external domains
+                        example: ethereum
+                      nftTokenId:
+                        type: string
+                        description: NFT token ID for .iam domains
+                        example: "0.0.12345"
+                      registeredAt:
+                        type: string
+                        format: date-time
+                      expiresAt:
+                        type: string
+                        format: date-time
+                      autoRenew:
+                        type: boolean
+                        description: Whether domain auto-renews
+                        example: true
+                      verificationProof:
+                        type: object
+                        description: Verification proof for external domains
+        "404":
+          description: Domain not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      summary: Update domain settings
+      description: Update domain configuration and settings
+      tags:
+        - Domain
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Domain name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                autoRenew:
+                  type: boolean
+                  description: Enable/disable auto-renewal
+                dnsRecords:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum: [A, AAAA, CNAME, TXT, MX]
+                      name:
+                        type: string
+                      value:
+                        type: string
+                      ttl:
+                        type: integer
+                        minimum: 60
+                        maximum: 86400
+                        default: 3600
+      responses:
+        "200":
+          description: Domain updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      domain:
+                        type: string
+                        example: john.smith.iam
+                      updatedFields:
+                        type: array
+                        items:
+                          type: string
+                        example: ["autoRenew", "dnsRecords"]
+        "400":
+          description: Invalid update data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not authorized to update domain
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /domains/{domain}/renew:
+    post:
+      summary: Renew domain
+      description: Renew a domain registration before expiration
+      tags:
+        - Domain
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Domain name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - years
+              properties:
+                years:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  description: Number of years to renew
+                  example: 1
+      responses:
+        "200":
+          description: Domain renewed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      domain:
+                        type: string
+                        example: john.smith.iam
+                      newExpiration:
+                        type: string
+                        format: date-time
+                        description: New expiration date
+                      transactionId:
+                        type: string
+                        description: Renewal transaction ID
+                      cost:
+                        type: number
+                        description: Renewal cost in USD cents
+                        example: 4900
+        "400":
+          description: Invalid renewal request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "402":
+          description: Insufficient funds or allowance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /domains/{domain}/transfer:
+    post:
+      summary: Transfer domain ownership
+      description: Transfer domain ownership to another user
+      tags:
+        - Domain
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Domain name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newOwnerId
+              properties:
+                newOwnerId:
+                  type: string
+                  format: uuid
+                  description: User ID of new owner
+                  example: 456e7890-e89b-12d3-a456-426614174001
+      responses:
+        "200":
+          description: Domain transfer initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      domain:
+                        type: string
+                        example: john.smith.iam
+                      transferId:
+                        type: string
+                        format: uuid
+                        description: Transfer request ID
+                      status:
+                        type: string
+                        enum: [pending, completed, rejected]
+                        example: pending
+                      newOwner:
+                        type: string
+                        format: uuid
+                      expiresAt:
+                        type: string
+                        format: date-time
+                        description: Transfer expiration (24 hours)
+        "400":
+          description: Invalid transfer request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not authorized to transfer domain
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /domains/{domain}/transfer/{transferId}/confirm:
+    post:
+      summary: Confirm domain transfer
+      description: Confirm domain transfer as the recipient
+      tags:
+        - Domain
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Domain name
+        - name: transferId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Transfer request ID
+      responses:
+        "200":
+          description: Domain transfer confirmed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      domain:
+                        type: string
+                        example: john.smith.iam
+                      newOwner:
+                        type: string
+                        format: uuid
+                      transactionId:
+                        type: string
+                        description: Transfer transaction ID
+        "400":
+          description: Invalid transfer confirmation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not authorized to confirm transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Transfer request not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /domains/search:
+    get:
+      summary: Search domains
+      description: Search for domains by various criteria
+      tags:
+        - Domain
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+          description: Search query (domain name, owner email, etc.)
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [iam, external, all]
+            default: all
+          description: Domain type filter
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, pending, suspended, expired, all]
+            default: all
+          description: Domain status filter
+        - name: blockchain
+          in: query
+          schema:
+            type: string
+            enum: [ethereum, polygon, solana, bitcoin]
+          description: Blockchain filter for external domains
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of results
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Number of results to skip
+      responses:
+        "200":
+          description: Domain search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Domain"
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 150
+                      limit:
+                        type: integer
+                        example: 20
+                      offset:
+                        type: integer
+                        example: 0
+                      hasMore:
+                        type: boolean
+                        example: true
+        "400":
+          description: Invalid search parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /domains/availability:
+    get:
+      summary: Check domain availability
+      description: Check if a domain name is available for registration
+      tags:
+        - Domain
+      parameters:
+        - name: domain
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 63
+          description: Domain name to check (without .iam extension)
+          example: john
+      responses:
+        "200":
+          description: Domain availability checked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      domain:
+                        type: string
+                        example: john.smith.iam
+                      available:
+                        type: boolean
+                        example: true
+                      suggestions:
+                        type: array
+                        items:
+                          type: string
+                        description: Alternative domain suggestions
+                        example: ["john2.smith.iam", "johnj.smith.iam"]
+        "400":
+          description: Invalid domain name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /domains/user/{userId}:
+    get:
+      summary: Get user's domains
+      description: Retrieve all domains owned by a user
+      tags:
+        - Domain
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [iam, external, all]
+            default: all
+          description: Domain type filter
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, pending, suspended, expired, all]
+            default: all
+          description: Domain status filter
+      responses:
+        "200":
+          description: User's domains retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Domain"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: DOMAIN_UNAVAILABLE
+        message:
+          type: string
+          example: Domain already registered
+        details:
+          type: object
+        requestId:
+          type: string
+          format: uuid
+      required:
+        - success
+        - error
+        - message
+
+    Domain:
+      type: object
+      properties:
+        domain:
+          type: string
+          description: Full domain name
+          example: john.smith.iam
+        type:
+          type: string
+          enum: [iam, external]
+          description: Domain type
+          example: iam
+        status:
+          type: string
+          enum: [active, pending, suspended, expired]
+          description: Domain registration status
+          example: active
+        owner:
+          type: string
+          format: uuid
+          description: User ID of domain owner
+        blockchain:
+          type: string
+          description: Blockchain for external domains
+          example: ethereum
+        nftTokenId:
+          type: string
+          description: NFT token ID for .iam domains
+          example: "0.0.12345"
+        registeredAt:
+          type: string
+          format: date-time
+          description: Registration timestamp
+        expiresAt:
+          type: string
+          format: date-time
+          description: Expiration timestamp
+        autoRenew:
+          type: boolean
+          description: Auto-renewal enabled
+          example: true
+        verificationProof:
+          type: object
+          description: Verification proof for external domains
+      required:
+        - domain
+        - type
+        - status
+        - owner
+
+    DomainRegistration:
+      type: object
+      properties:
+        domain:
+          type: string
+          example: john.smith.iam
+        nftTokenId:
+          type: string
+          example: "0.0.12345"
+        transactionId:
+          type: string
+          example: "0.0.12345@1234567890.000000000"
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - domain
+        - nftTokenId
+        - transactionId
+        - expiresAt
+
+    DomainVerification:
+      type: object
+      properties:
+        domain:
+          type: string
+          example: john.eth
+        verified:
+          type: boolean
+          example: true
+        blockchain:
+          type: string
+          example: ethereum
+        proof:
+          type: string
+          description: Verification proof hash
+          example: "0x..."
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - domain
+        - verified
+        - blockchain
+        - timestamp
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+tags:
+  - name: Domain
+    description: Domain registration and management operations
