@@ -6,14 +6,14 @@
 
 **UBeU is a production-ready Identity as a Service platform that bridges Web2 simplicity with Web3 decentralized identity capabilities. 95% implementation complete with production deployment ready.**
 
-Transform any Web3 domain (.eth, .crypto, etc.) into a fully functional decentralized identity capable of receiving, storing, and presenting verifiable credentials from any W3C-compliant issuer.
+Transform any Web3 domain (.eth, all EVM-compatible, Unstoppable Domains, .sol, .btc) into a fully functional decentralized identity capable of receiving, storing, and presenting verifiable credentials from any W3C-compliant issuer.
 
 ## ✨ Key Features
 
 - **🔓 Zero Web3 Complexity** - Complete blockchain abstraction with treasury-sponsored transactions
 - **🔄 OpenID4 Compliance** - Universal wallet compatibility with OpenID4VCI/VP protocols
 - **🏢 Enterprise-Ready** - PostgreSQL backend with advanced security and compliance (95% complete)
-- **🌐 Multi-Domain Support** - .iam, .eth, .crypto, .sol, .btc domains
+- **🌐 Multi-Domain Support** - .iam, .eth, .crypto, .sol, .btc, etc. domains
 - **⚡ Production Infrastructure** - Kubernetes orchestration with full CI/CD pipeline
 - **🔐 SOC 2 Ready** - Enterprise-grade security and comprehensive audit trails
 - **🎓 Open Badges** - IMS Global v3.0 compliance with LMS integration
@@ -78,6 +78,7 @@ console.log('Identity created:', identity.did);
 - 1 .iam personal domain + 1 external Web3 domain
 - 2 DID profiles for context switching
 - 5 social media verifications
+- 100 
 - Rate-limited operations preventing abuse
 
 ### Pro Issuer Tier: $199/month + $0.10/credential
